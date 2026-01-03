@@ -16,6 +16,23 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import json
+import os
+from pathlib import Path
+from werkzeug.utils import secure_filename
+from database import Database
+
+# Try to import RAG components (optional)
+RAG_AVAILABLE = False
+try:
+    from pdf_processor import PDFProcessor
+    from vector_store import VectorStore
+    from rag_engine import RAGEngine
+    RAG_AVAILABLE = True
+    print("✅ RAG components loaded")
+except ImportError as e:
+    print(f"⚠️ RAG components not available: {e}")
+    print("   Chat history will work, but PDF upload is disabled.")
+    print("   To enable RAG: pip install chromadb PyPDF2")
 
 # Create the Flask app (this is your server)
 app = Flask(__name__)
@@ -27,6 +44,31 @@ CORS(app)
 # Configuration - you can change these!
 OLLAMA_API_URL = "http://localhost:11434/api/generate"  # Where Ollama is running
 DEFAULT_MODEL = "llama3.2"  # Which AI model to use
+UPLOAD_FOLDER = "data/uploads"
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+ALLOWED_EXTENSIONS = {'pdf'}
+
+# Create upload directory
+Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
+
+# Initialize database
+db = Database("data/chatbot.db")
+print("✅ Database initialized")
+
+# Initialize RAG components (only if available)
+if RAG_AVAILABLE:
+    try:
+        pdf_processor = PDFProcessor(chunk_size=512, chunk_overlap=50)
+        vector_store = VectorStore("data/chroma_db")
+        rag_engine = RAGEngine(vector_store, OLLAMA_API_URL)
+        print("✅ RAG system initialized")
+    except Exception as e:
+        print(f"⚠️ RAG initialization failed: {e}")
+        RAG_AVAILABLE = False
+
+# Global variables
+CURRENT_CONVERSATION_ID = None
+RAG_ENABLED = RAG_AVAILABLE  # Enable/disable RAG
 
 # You can change the model here to try different ones:
 # - "llama3.2" - Best all-around
@@ -35,84 +77,94 @@ DEFAULT_MODEL = "llama3.2"  # Which AI model to use
 # - "gemma:7b" - Google's model
 
 
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
 @app.route('/chat', methods=['POST'])
 def chat():
     """
-    This is the main function that handles chat messages.
-    
-    When someone types a message on the website, it comes here.
-    We then send it to Ollama and get a response.
+    RAG-ENHANCED chat endpoint (or standard chat if RAG unavailable)
     """
+    global CURRENT_CONVERSATION_ID, RAG_ENABLED
     
     try:
-        # Get the message from the user
-        # The frontend sends JSON data like: {"message": "Hello!"}
         data = request.get_json()
         user_message = data.get('message', '')
+        conversation_id = data.get('conversation_id', CURRENT_CONVERSATION_ID)
+        use_rag = data.get('use_rag', RAG_ENABLED) and RAG_AVAILABLE
         
-        # Check if the message is empty
         if not user_message:
-            return jsonify({
-                'error': 'No message provided',
-                'response': 'Please type a message!'
-            }), 400
+            return jsonify({'error': 'No message provided'}), 400
         
-        print(f"\n👤 User: {user_message}")  # Print to console so you can see what's happening
+        # Create conversation if needed
+        if conversation_id is None:
+            title = user_message[:50] + "..." if len(user_message) > 50 else user_message
+            conversation_id = db.create_conversation(title, DEFAULT_MODEL)
+            CURRENT_CONVERSATION_ID = conversation_id
         
-        # Prepare the request to send to Ollama
-        payload = {
-            "model": DEFAULT_MODEL,      # Which AI model to use
-            "prompt": user_message,      # The user's question
-            "stream": False              # Get the complete response at once (not word-by-word)
-        }
+        print(f"\n👤 User (Conv {conversation_id}): {user_message}")
         
-        # Send the request to Ollama
-        print("🤔 Thinking...")
-        response = requests.post(
-            OLLAMA_API_URL, 
-            json=payload,
-            timeout=120  # Wait up to 2 minutes for a response
-        )
+        # Save user message
+        db.save_message(conversation_id, 'user', user_message, has_rag=False)
         
-        # Check if Ollama responded successfully
-        if response.status_code == 200:
-            # Get the AI's response
-            ai_response = response.json().get('response', 'Sorry, I could not generate a response.')
-            print(f"🤖 AI: {ai_response[:100]}...")  # Print first 100 characters
-            
-            # Send the response back to the frontend
-            return jsonify({
-                'response': ai_response,
-                'model': DEFAULT_MODEL
-            })
+        # USE RAG ENGINE IF AVAILABLE
+        if RAG_AVAILABLE and use_rag:
+            print("🔍 Using RAG engine...")
+            rag_result = rag_engine.chat_with_rag(
+                query=user_message,
+                model=DEFAULT_MODEL,
+                use_rag=use_rag,
+                top_k=3
+            )
+            ai_response = rag_result['response']
+            has_context = rag_result['has_rag_context']
+            sources = rag_result.get('sources', [])
         else:
-            # Something went wrong with Ollama
-            return jsonify({
-                'error': f'Ollama error: {response.status_code}',
-                'response': 'Sorry, the AI is having trouble right now. Make sure Ollama is running!'
-            }), 500
+            # Standard chat without RAG
+            print("💬 Standard chat (RAG not available)...")
+            payload = {
+                "model": DEFAULT_MODEL,
+                "prompt": user_message,
+                "stream": False
+            }
+            response = requests.post(OLLAMA_API_URL, json=payload, timeout=120)
+            if response.status_code == 200:
+                ai_response = response.json().get('response', 'Sorry, I could not generate a response.')
+            else:
+                ai_response = 'Sorry, the AI is having trouble right now.'
+            has_context = False
+            sources = []
+        
+        print(f"🤖 AI: {ai_response[:100]}...")
+        
+        # Save response
+        db.save_message(conversation_id, 'assistant', ai_response, has_rag=has_context)
+        
+        return jsonify({
+            'response': ai_response,
+            'model': DEFAULT_MODEL,
+            'conversation_id': conversation_id,
+            'has_rag_context': has_context,
+            'sources': sources
+        })
             
     except requests.exceptions.ConnectionError:
-        # This happens when Ollama is not running
-        return jsonify({
-            'error': 'Cannot connect to Ollama',
-            'response': '⚠️ Cannot connect to Ollama! Make sure:\n1. Ollama is installed\n2. Ollama is running\n3. You have downloaded a model (ollama pull llama3.2)'
-        }), 500
-        
-    except requests.exceptions.Timeout:
-        # This happens when the AI takes too long to respond
-        return jsonify({
-            'error': 'Request timeout',
-            'response': '⏱️ The AI is taking too long to respond. Try a shorter message or restart Ollama.'
-        }), 504
+        error_msg = '⚠️ Cannot connect to Ollama! Make sure Ollama is running.'
+        if conversation_id:
+            db.save_message(conversation_id, 'assistant', error_msg, has_rag=False)
+        return jsonify({'error': 'Cannot connect to Ollama', 'response': error_msg, 'conversation_id': conversation_id}), 500
         
     except Exception as e:
-        # Catch any other errors
         print(f"❌ Error: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'response': f'An error occurred: {str(e)}'
-        }), 500
+        error_msg = f'An error occurred: {str(e)}'
+        if conversation_id:
+            try:
+                db.save_message(conversation_id, 'assistant', error_msg, has_rag=False)
+            except:
+                pass
+        return jsonify({'error': str(e), 'response': error_msg, 'conversation_id': conversation_id}), 500
 
 
 @app.route('/health', methods=['GET'])
@@ -238,6 +290,243 @@ def download_model():
             }), 500
             
     except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+# ==========================================
+# CONVERSATION MANAGEMENT ENDPOINTS
+# ==========================================
+
+@app.route('/api/conversations/new', methods=['POST'])
+def new_conversation():
+    """Create a new conversation"""
+    global CURRENT_CONVERSATION_ID
+    
+    try:
+        data = request.get_json() or {}
+        title = data.get('title', 'New Chat')
+        model = data.get('model', DEFAULT_MODEL)
+        
+        conversation_id = db.create_conversation(title, model)
+        CURRENT_CONVERSATION_ID = conversation_id
+        
+        return jsonify({
+            'status': 'success',
+            'conversation_id': conversation_id,
+            'title': title
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/conversations', methods=['GET'])
+def list_conversations():
+    """Get list of all conversations"""
+    try:
+        conversations = db.get_all_conversations()
+        return jsonify({
+            'status': 'success',
+            'conversations': conversations
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+        
+
+@app.route('/api/conversations/<int:conversation_id>', methods=['GET'])
+def get_conversation(conversation_id):
+    """Get specific conversation with all messages"""
+    try:
+        conversation = db.get_conversation(conversation_id)
+        
+        if not conversation:
+            return jsonify({
+                'status': 'error',
+                'message': 'Conversation not found'
+            }), 404
+        
+        return jsonify({
+            'status': 'success',
+            'conversation': conversation
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/conversations/<int:conversation_id>', methods=['DELETE'])
+def delete_conversation_endpoint(conversation_id):
+    """Delete a conversation"""
+    global CURRENT_CONVERSATION_ID
+    
+    try:
+        db.delete_conversation(conversation_id)
+        
+        # Clear current conversation if it was deleted
+        if CURRENT_CONVERSATION_ID == conversation_id:
+            CURRENT_CONVERSATION_ID = None
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Conversation deleted'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/conversations/<int:conversation_id>/set-active', methods=['POST'])
+def set_active_conversation(conversation_id):
+    """Set the active conversation"""
+    global CURRENT_CONVERSATION_ID
+    
+    try:
+        # Verify conversation exists
+        conversation = db.get_conversation(conversation_id)
+        if not conversation:
+            return jsonify({
+                'status': 'error',
+                'message': 'Conversation not found'
+            }), 404
+        
+        CURRENT_CONVERSATION_ID = conversation_id
+        
+        return jsonify({
+            'status': 'success',
+            'conversation_id': conversation_id
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+# ==========================================
+# DOCUMENT MANAGEMENT ENDPOINTS
+# ==========================================
+
+@app.route('/api/documents/upload', methods=['POST'])
+def upload_document():
+    """Upload and process a PDF document"""
+    try:
+        # Check if file is present
+        if 'file' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'status': 'error', 'message': 'Only PDF files are allowed'}), 400
+        
+        # Save file
+        filename = secure_filename(file.filename)
+        timestamp = str(int(os.path.getmtime if hasattr(os.path, 'getmtime') else lambda x: 0))
+        safe_filename = f"{timestamp}_{filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+        
+        file.save(file_path)
+        file_size = os.path.getsize(file_path)
+        
+        print(f"📄 Uploaded: {filename} ({file_size} bytes)")
+        
+        # Process PDF
+        result = pdf_processor.process_pdf(file_path)
+        
+        # Add to database
+        doc_id = db.add_document(
+            filename=filename,
+            file_path=file_path,
+            file_size=file_size,
+            page_count=result['page_count']
+        )
+        
+        # Add to vector store
+        vector_store.add_document(
+            doc_id=doc_id,
+            chunks=result['chunks'],
+            metadata={'filename': filename}
+        )
+        
+        # Update status
+        db.update_document_status(doc_id, 'ready')
+        
+        print(f"✅ Document {doc_id} processed successfully")
+        
+        return jsonify({
+            'status': 'success',
+            'document_id': doc_id,
+            'filename': filename,
+            'pages': result['page_count'],
+            'chunks': result['chunk_count']
+        })
+        
+    except Exception as e:
+        print(f"❌ Upload error: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/documents', methods=['GET'])
+def list_documents():
+    """Get list of all uploaded documents"""
+    try:
+        documents = db.get_documents()
+        return jsonify({
+            'status': 'success',
+            'documents': documents
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/documents/<int:doc_id>', methods=['DELETE'])
+def delete_document_endpoint(doc_id):
+    """Delete a document"""
+    try:
+        # Get document info
+        doc = db.get_document_by_id(doc_id)
+        if not doc:
+            return jsonify({'status': 'error', 'message': 'Document not found'}), 404
+        
+        # Delete from vector store
+        vector_store.delete_document(doc_id)
+        
+        # Delete file
+        if os.path.exists(doc['file_path']):
+            os.remove(doc['file_path'])
+        
+        # Delete from database
+        db.delete_document(doc_id)
+        
+        print(f"✅ Deleted document {doc_id}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Document deleted'
+        })
+    except Exception as e:
+        print(f"❌ Delete error: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e)

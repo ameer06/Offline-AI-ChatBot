@@ -4,19 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chatbot - Free & Local</title>
-
-    <!-- 
-        This is the FRONTEND (User Interface) of your chatbot.
-        It's what people see and interact with in their browser.
-        
-    -->
-
+    <title>AI Chatbot - Local RAG</title>
     <style>
-        /* =====================================
-           RESET & BASIC STYLES
-           ===================================== */
-
         * {
             margin: 0;
             padding: 0;
@@ -24,7 +13,6 @@
         }
 
         body {
-            /* Background with a beautiful gradient */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -34,110 +22,148 @@
             padding: 20px;
         }
 
-        /* =====================================
-           CHAT CONTAINER
-           ===================================== */
-
-        .chat-container {
+        .app-container {
             width: 100%;
-            max-width: 900px;
-            height: 85vh;
+            max-width: 1400px;
+            height: 90vh;
             background: rgba(255, 255, 255, 0.98);
             border-radius: 24px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             display: flex;
-            flex-direction: column;
             overflow: hidden;
-            backdrop-filter: blur(10px);
-            animation: slideUp 0.5s ease;
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* SIDEBAR */
+        .sidebar {
+            width: 300px;
+            background: #f8f9fa;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
         }
 
-        /* =====================================
-           HEADER SECTION
-           ===================================== */
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .sidebar-section h3 {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .conversation-item,
+        .document-item {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+
+        .conversation-item:hover,
+        .document-item:hover {
+            border-color: #667eea;
+            transform: translateX(4px);
+        }
+
+        .conversation-item.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .conversation-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .conversation-meta {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        .document-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .document-meta {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        .delete-btn {
+            float: right;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
+        /* MAIN CHAT AREA */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
 
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 25px 30px;
+            padding: 20px 30px;
             display: flex;
             align-items: center;
             gap: 15px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
-        .chat-header-icon {
-            font-size: 36px;
-            animation: bounce 2s infinite;
-        }
-
-        @keyframes bounce {
-
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-
-            50% {
-                transform: translateY(-5px);
-            }
-        }
-
-        .chat-header-text h1 {
-            font-size: 24px;
+        .chat-header h1 {
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 4px;
         }
 
-        .chat-header-text p {
-            font-size: 13px;
+        .chat-header p {
+            font-size: 12px;
             opacity: 0.9;
-        }
-
-        .status-indicator {
-            margin-left: auto;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background: #4ade80;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        /* Model Selector */
-        .model-selector {
-            margin-left: auto;
-            margin-right: 20px;
         }
 
         .model-dropdown {
@@ -148,24 +174,15 @@
             border-radius: 20px;
             font-size: 13px;
             cursor: pointer;
-            outline: none;
-            min-width: 150px;
-            transition: all 0.3s;
+            margin-left: auto;
         }
 
-        .model-dropdown:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .rag-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
         }
-
-        .model-dropdown option {
-            background: #667eea;
-            color: white;
-        }
-
-
-        /* =====================================
-           MESSAGES AREA
-           ===================================== */
 
         .chat-messages {
             flex: 1;
@@ -177,37 +194,12 @@
             background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
         }
 
-        /* Custom scrollbar */
-        .chat-messages::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .chat-messages::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb:hover {
-            background: #667eea;
-        }
-
-        /* =====================================
-           MESSAGE BUBBLES
-           ===================================== */
-
         .message {
             max-width: 75%;
             padding: 14px 18px;
             border-radius: 18px;
             line-height: 1.5;
-            word-wrap: break-word;
             animation: fadeIn 0.4s ease;
-            position: relative;
         }
 
         @keyframes fadeIn {
@@ -227,7 +219,6 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-bottom-right-radius: 4px;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .bot-message {
@@ -236,74 +227,24 @@
             color: #2d3748;
             border: 1px solid #e2e8f0;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
-        .message-timestamp {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 6px;
-            text-align: right;
-        }
-
-        /* Welcome message */
-        .welcome-message {
-            text-align: center;
-            padding: 40px 20px;
-            color: #64748b;
-        }
-
-        .welcome-message h2 {
-            font-size: 28px;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .welcome-message p {
-            font-size: 15px;
-            margin-bottom: 20px;
-        }
-
-        .quick-prompts {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
-        .quick-prompt-btn {
-            padding: 10px 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .message-rag-badge {
+            display: inline-block;
+            background: #10b981;
             color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            margin-left: 8px;
         }
 
-        .quick-prompt-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .quick-prompt-btn:active {
-            transform: translateY(0);
-        }
-
-        /* Loading indicator */
         .loading {
             align-self: flex-start;
             background: white;
             border: 1px solid #e2e8f0;
             padding: 14px 18px;
             border-radius: 18px;
-            border-bottom-left-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .loading-dots {
@@ -340,10 +281,6 @@
             }
         }
 
-        /* =====================================
-           INPUT AREA
-           ===================================== */
-
         .chat-input-container {
             padding: 20px 25px;
             background: white;
@@ -361,12 +298,10 @@
             font-size: 15px;
             outline: none;
             transition: all 0.3s;
-            font-family: inherit;
         }
 
         .chat-input:focus {
             border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .send-button {
@@ -379,7 +314,6 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .send-button:hover {
@@ -387,369 +321,380 @@
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .send-button:active {
-            transform: translateY(0);
+        /* FILE UPLOAD */
+        #fileInput {
+            display: none;
         }
 
-        .send-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
+        .empty-state {
+            text-align: center;
+            color: #64748b;
+            padding: 20px;
+            font-size: 13px;
         }
 
-        /* =====================================
-           RESPONSIVE DESIGN
-           ===================================== */
-
+        /* RESPONSIVE */
         @media (max-width: 768px) {
-            .chat-container {
-                height: 90vh;
-                border-radius: 16px;
-            }
-
-            .chat-header h1 {
-                font-size: 20px;
-            }
-
-            .message {
-                max-width: 85%;
-            }
-
-            .quick-prompts {
-                flex-direction: column;
-            }
-
-            .send-button {
-                padding: 14px 20px;
+            .sidebar {
+                display: none;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="chat-container">
-        <!-- HEADER -->
-        <div class="chat-header">
-            <div class="chat-header-icon">🤖</div>
-            <div class="chat-header-text">
-                <h1>OFFLINE AI Chatbot</h1>
-                <p id="modelName">Powered by Ollama - Running Locally</p>
+    <div class="app-container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <!-- Chat History Section -->
+            <div class="sidebar-section">
+                <h3>💬 Chat History</h3>
+                <button class="btn btn-primary" onclick="createNewConversation()">+ New Chat</button>
+                <div id="conversationList" style="margin-top: 16px;">
+                    <div class="empty-state">No conversations yet</div>
+                </div>
             </div>
-            <div class="model-selector">
-                <select id="modelDropdown" class="model-dropdown">
-                    <option value="">Loading models...</option>
-                </select>
-            </div>
-            <div class="status-indicator">
-                <span class="status-dot"></span>
-                <span>Online</span>
-            </div>
-        </div>
 
-        <!-- MESSAGES AREA -->
-        <div class="chat-messages" id="chatMessages">
-            <div class="welcome-message">
-                <h2>👋 Welcome to Your AI Chatbot!</h2>
-                <p>I'm running completely on your computer - no internet needed!</p>
-                <p>Try asking me something:</p>
-                <div class="quick-prompts">
-                    <button class="quick-prompt-btn" onclick="sendQuickMessage('Tell me a fun fact')">
-                        💡 Fun Fact
-                    </button>
-                    <button class="quick-prompt-btn" onclick="sendQuickMessage('Write a short poem')">
-                        ✍️ Write a Poem
-                    </button>
-                    <button class="quick-prompt-btn" onclick="sendQuickMessage('Help me with Python code')">
-                        💻 Code Help
-                    </button>
-                    <button class="quick-prompt-btn" onclick="sendQuickMessage('Explain blockchain simply')">
-                        🧠 Explain Blockchain
-                    </button>
+            <!-- Documents Section -->
+            <div class="sidebar-section">
+                <h3>📄 Documents</h3>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">+ Upload
+                    PDF</button>
+                <input type="file" id="fileInput" accept=".pdf" onchange="uploadDocument(this.files[0])">
+                <div id="documentList" style="margin-top: 16px;">
+                    <div class="empty-state">No documents yet</div>
                 </div>
             </div>
         </div>
 
-        <!-- INPUT AREA -->
-        <div class="chat-input-container">
-            <input type="text" class="chat-input" id="userInput" placeholder="Type your message here..."
-                onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="send-button" id="sendButton" onclick="sendMessage()">
-                Send 🚀
-            </button>
+        <!-- MAIN CHAT AREA -->
+        <div class="main-area">
+            <div class="chat-header">
+                <div>
+                    <div class="chat-header-icon" style="font-size: 28px; display: inline;">🤖</div>
+                </div>
+                <div>
+                    <h1>Local AI Chatbot with RAG</h1>
+                    <p id="modelName">Powered by Ollama - 100% Offline</p>
+                </div>
+                <select id="modelDropdown" class="model-dropdown">
+                    <option>Loading...</option>
+                </select>
+                <label class="rag-toggle">
+                    <input type="checkbox" id="ragEnabled" checked onchange="toggleRAG()">
+                    <span>Use Documents</span>
+                </label>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <h2
+                        style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        👋 Welcome!</h2>
+                    <p>Upload PDFs and ask questions about them, or just chat normally.</p>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="userInput" placeholder="Type your message..."
+                    onkeypress="if(event.key==='Enter') sendMessage()">
+                <button class="send-button" id="sendButton" onclick="sendMessage()">Send 🚀</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // =====================================
-        // JAVASCRIPT - The Logic
-        // =====================================
+        // Configuration
+        const API_URL = 'http://localhost:5000';
+        let currentConversationId = null;
+        let ragEnabled = true;
 
-        // This is where we handle sending messages and displaying responses
+        // ==================== CONVERSATION MANAGEMENT ====================
 
-        const API_URL = 'http://localhost:5000/chat';  // Your backend server address
-
-        /**
-         * Send a message to the AI
-         * This function is called when you click Send or press Enter
-         */
-        async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const sendButton = document.getElementById('sendButton');
-            const message = input.value.trim();
-
-            // Don't send empty messages
-            if (!message) return;
-
-            // Clear the input box
-            input.value = '';
-
-            // Remove welcome message if it exists
-            const welcomeMsg = document.querySelector('.welcome-message');
-            if (welcomeMsg) {
-                welcomeMsg.remove();
-            }
-
-            // Display the user's message
-            addMessage(message, 'user');
-
-            // Show loading indicator
-            showLoading();
-
-            // Disable send button while waiting for response
-            sendButton.disabled = true;
-            input.disabled = true;
-
+        async function createNewConversation() {
             try {
-                // Send the message to the backend
-                const response = await fetch(API_URL, {
+                const response = await fetch(`${API_URL}/api/conversations/new`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message: message })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: 'New Chat' })
                 });
-
-                // Get the response from the backend
                 const data = await response.json();
-
-                // Remove loading indicator
-                hideLoading();
-
-                // Display the AI's response
-                if (data.response) {
-                    addMessage(data.response, 'bot');
-                } else if (data.error) {
-                    addMessage(`Error: ${data.error}`, 'bot');
+                if (data.status === 'success') {
+                    currentConversationId = data.conversation_id;
+                    clearMessages();
+                    loadConversations();
+                    console.log('✅ New conversation created:', currentConversationId);
                 }
-
             } catch (error) {
-                // If something goes wrong (backend not running, etc.)
-                hideLoading();
-                addMessage(
-                    '⚠️ Could not connect to the backend!\n\n' +
-                    'Make sure:\n' +
-                    '1. You ran "python backend/app.py"\n' +
-                    '2. You see "Running on http://127.0.0.1:5000"\n' +
-                    '3. Ollama is installed and running\n\n' +
-                    `Error details: ${error.message}`,
-                    'bot'
-                );
-            } finally {
-                // Re-enable the input and button
-                sendButton.disabled = false;
-                input.disabled = false;
-                input.focus();
+                console.error('Error creating conversation:', error);
             }
         }
 
-        /**
-         * Add a message to the chat
-         * @param {string} text - The message text
-         * @param {string} sender - Either 'user' or 'bot'
-         */
-        function addMessage(text, sender) {
+        async function loadConversations() {
+            try {
+                const response = await fetch(`${API_URL}/api/conversations`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    displayConversations(data.conversations);
+                }
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        function displayConversations(conversations) {
+            const list = document.getElementById('conversationList');
+            if (conversations.length === 0) {
+                list.innerHTML = '<div class="empty-state">No conversations yet</div>';
+                return;
+            }
+
+            list.innerHTML = conversations.map(conv => `
+                <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" onclick="loadConversation(${conv.id})">
+                    <button class="delete-btn" onclick="deleteConversation(${conv.id}, event)">×</button>
+                    <div class="conversation-title">${conv.title}</div>
+                    <div class="conversation-meta">${conv.message_count} messages</div>
+                </div>
+            `).join('');
+        }
+
+        async function loadConversation(convId) {
+            try {
+                const response = await fetch(`${API_URL}/api/conversations/${convId}`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    currentConversationId = convId;
+                    clearMessages();
+                    data.conversation.messages.forEach(msg => {
+                        addMessage(msg.content, msg.role === 'user' ? 'user' : 'bot', msg.has_rag_context);
+                    });
+                    loadConversations(); // Refresh list to update active state
+                }
+            } catch (error) {
+                console.error('Error loading conversation:', error);
+            }
+        }
+
+        async function deleteConversation(convId, event) {
+            event.stopPropagation(); // Prevent loading the conversation when clicking delete
+
+            if (!confirm('Delete this conversation? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/conversations/${convId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // If we deleted the current conversation, clear the chat
+                    if (convId === currentConversationId) {
+                        currentConversationId = null;
+                        clearMessages();
+                        document.getElementById('chatMessages').innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: #64748b;">
+                                <h2 style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">👋 Welcome!</h2>
+                                <p>Upload PDFs and ask questions about them, or just chat normally.</p>
+                            </div>
+                        `;
+                    }
+
+                    // Reload conversation list
+                    loadConversations();
+                    console.log('✅ Conversation deleted');
+                } else {
+                    alert('Error deleting conversation: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error deleting conversation:', error);
+                alert('Error deleting conversation');
+            }
+        }
+
+        // ==================== DOCUMENT MANAGEMENT ====================
+
+        async function uploadDocument(file) {
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                console.log('📤 Uploading:', file.name);
+                const response = await fetch(`${API_URL}/api/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    console.log('✅ Document uploaded:', data);
+                    alert(`Document uploaded! ${data.pages} pages, ${data.chunks} chunks processed.`);
+                    loadDocuments();
+                } else {
+                    alert('Error uploading document: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error uploading document:', error);
+                alert('Error uploading document');
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`${API_URL}/api/documents`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    displayDocuments(data.documents);
+                }
+            } catch (error) {
+                console.error('Error loading documents:', error);
+            }
+        }
+
+        function displayDocuments(documents) {
+            const list = document.getElementById('documentList');
+            if (documents.length === 0) {
+                list.innerHTML = '<div class="empty-state">No documents yet</div>';
+                return;
+            }
+
+            list.innerHTML = documents.map(doc => `
+                <div class="document-item">
+                    <button class="delete-btn" onclick="deleteDocument(${doc.id}, event)">×</button>
+                    <div class="document-name">📄 ${doc.filename}</div>
+                    <div class="document-meta">${doc.page_count} pages • ${(doc.file_size / 1024).toFixed(1)} KB</div>
+                </div>
+            `).join('');
+        }
+
+        async function deleteDocument(docId, event) {
+            event.stopPropagation();
+            if (!confirm('Delete this document?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/documents/${docId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    loadDocuments();
+                }
+            } catch (error) {
+                console.error('Error deleting document:', error);
+            }
+        }
+
+        // ==================== CHAT FUNCTIONS ====================
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            addMessage(message, 'user');
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId,
+                        use_rag: ragEnabled
+                    })
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+                if (data.response) {
+                    currentConversationId = data.conversation_id;
+                    addMessage(data.response, 'bot', data.has_rag_context);
+                    loadConversations(); // Refresh conversation list
+                } else {
+                    addMessage('Error: ' + (data.error || 'Unknown error'), 'bot');
+                }
+            } catch (error) {
+                hideLoading();
+                addMessage('⚠️ Cannot connect to backend. Make sure the server is running!', 'bot');
+            }
+        }
+
+        function addMessage(text, sender, hasRag = false) {
             const messagesDiv = document.getElementById('chatMessages');
+            // Remove welcome message if exists
+            if (messagesDiv.children.length === 1 && messagesDiv.children[0].textContent.includes('Welcome')) {
+                messagesDiv.innerHTML = '';
+            }
+
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
 
-            // Convert line breaks to <br> tags for proper display
-            const formattedText = text.replace(/\n/g, '<br>');
-            messageDiv.innerHTML = formattedText;
-
-            // Add timestamp
-            const timestamp = document.createElement('div');
-            timestamp.className = 'message-timestamp';
-            timestamp.textContent = new Date().toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            messageDiv.appendChild(timestamp);
+            if (hasRag && sender === 'bot') {
+                const badge = document.createElement('span');
+                badge.className = 'message-rag-badge';
+                badge.textContent = '📄 RAG';
+                messageDiv.appendChild(badge);
+            }
 
             messagesDiv.appendChild(messageDiv);
-
-            // Auto-scroll to the bottom to show the new message
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        /**
-         * Show loading indicator while AI is thinking
-         */
         function showLoading() {
             const messagesDiv = document.getElementById('chatMessages');
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'loading';
             loadingDiv.id = 'loadingIndicator';
-            loadingDiv.innerHTML = `
-                <div class="loading-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            `;
+            loadingDiv.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
             messagesDiv.appendChild(loadingDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        /**
-         * Hide loading indicator
-         */
         function hideLoading() {
-            const loadingDiv = document.getElementById('loadingIndicator');
-            if (loadingDiv) {
-                loadingDiv.remove();
-            }
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) loading.remove();
         }
 
-        /**
-         * Send a quick message when clicking the suggestion buttons
-         * @param {string} message - The pre-written message
-         */
-        function sendQuickMessage(message) {
-            const input = document.getElementById('userInput');
-            input.value = message;
-            sendMessage();
+        function clearMessages() {
+            document.getElementById('chatMessages').innerHTML = '';
         }
 
-        // Focus on the input box when the page loads
-        window.onload = function () {
-            document.getElementById('userInput').focus();
-        };
+        function toggleRAG() {
+            ragEnabled = document.getElementById('ragEnabled').checked;
+            console.log('RAG', ragEnabled ? 'enabled' : 'disabled');
+        }
 
-        // Easter egg: clear chat with a secret command
-        // Type "/clear" to clear all messages
-        document.getElementById('userInput').addEventListener('keyup', function (e) {
-            if (this.value === '/clear') {
-                const messagesDiv = document.getElementById('chatMessages');
-                messagesDiv.innerHTML = `
-                    <div class="welcome-message">
-                        <h2>✨ Chat Cleared!</h2>
-                        <p>Start a new conversation...</p>
-                    </div>
-                `;
-                this.value = '';
-            }
-        });
+        // ==================== MODEL MANAGEMENT ====================
 
-        // =====================================
-        // MODEL MANAGEMENT (For Desktop App)
-        // =====================================
-
-        let currentModel = 'llama3.2';
-
-        /**
-         * Load available models from the backend
-         */
         async function loadModels() {
             try {
-                const response = await fetch('http://localhost:5000/api/models');
+                const response = await fetch(`${API_URL}/api/models`);
                 const data = await response.json();
-
                 if (data.status === 'success' && data.models) {
                     const dropdown = document.getElementById('modelDropdown');
-                    dropdown.innerHTML = '';
-
-                    // Add each model to the dropdown
-                    data.models.forEach(model => {
-                        const option = document.createElement('option');
-                        option.value = model.name;
-                        option.textContent = model.name;
-                        if (model.name === data.current_model) {
-                            option.selected = true;
-                            currentModel = model.name;
-                        }
-                        dropdown.appendChild(option);
-                    });
-
-                    // Update the model name display
-                    updateModelDisplay(currentModel);
-
-                    // Add change listener
-                    dropdown.addEventListener('change', handleModelChange);
+                    dropdown.innerHTML = data.models.map(m =>
+                        `<option value="${m.name}" ${m.name === data.current_model ? 'selected' : ''}>${m.name}</option>`
+                    ).join('');
                 }
             } catch (error) {
                 console.error('Error loading models:', error);
-                // Fallback: show current model only
-                const dropdown = document.getElementById('modelDropdown');
-                dropdown.innerHTML = `<option value="${currentModel}">${currentModel}</option>`;
             }
         }
 
-        /**
-         * Handle model change from dropdown
-         */
-        async function handleModelChange(event) {
-            const newModel = event.target.value;
+        // ==================== INITIALIZATION ====================
 
-            try {
-                const response = await fetch('http://localhost:5000/api/models/active', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ model: newModel })
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    currentModel = newModel;
-                    updateModelDisplay(newModel);
-
-                    // Show a system message
-                    const messagesDiv = document.getElementById('chatMessages');
-                    const systemMsg = document.createElement('div');
-                    systemMsg.style.textAlign = 'center';
-                    systemMsg.style.color = '#667eea';
-                    systemMsg.style.margin = '10px 0';
-                    systemMsg.style.fontSize = '13px';
-                    systemMsg.innerHTML = `🔄 Switched to <strong>${newModel}</strong>`;
-                    messagesDiv.appendChild(systemMsg);
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }
-            } catch (error) {
-                console.error('Error changing model:', error);
-                alert('Failed to change model. Make sure the backend is running.');
-                // Revert dropdown
-                event.target.value = currentModel;
-            }
-        }
-
-        /**
-         * Update the model name display in the header
-         */
-        function updateModelDisplay(modelName) {
-            const display = document.getElementById('modelName');
-            if (display) {
-                display.textContent = `Using: ${modelName}`;
-            }
-        }
-
-        // Load models when page loads (for desktop app)
-        // Add a small delay to ensure backend is ready
-        setTimeout(() => {
+        window.onload = function () {
+            loadConversations();
+            loadDocuments();
             loadModels();
-        }, 2000);
-
+            document.getElementById('userInput').focus();
+        };
     </script>
 </body>
 

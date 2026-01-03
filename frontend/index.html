@@ -666,7 +666,8 @@
 
                 if (data.response) {
                     currentConversationId = data.conversation_id;
-                    addMessage(data.response, 'bot', data.has_rag_context);
+                    // Add message with typing animation
+                    addMessageWithTyping(data.response, 'bot', data.has_rag_context);
                     loadConversations(); // Refresh conversation list
                 } else {
                     addMessage('Error: ' + (data.error || 'Unknown error'), 'bot');
@@ -697,6 +698,59 @@
 
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addMessageWithTyping(text, sender, hasRag = false) {
+            const messagesDiv = document.getElementById('chatMessages');
+
+            // Remove welcome message if exists
+            if (messagesDiv.children.length === 1 && messagesDiv.children[0].textContent.includes('Welcome')) {
+                messagesDiv.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.style.opacity = '0';
+            messagesDiv.appendChild(messageDiv);
+
+            // Fade in the message box
+            setTimeout(() => {
+                messageDiv.style.transition = 'opacity 0.3s';
+                messageDiv.style.opacity = '1';
+            }, 10);
+
+            // Typing animation - word by word
+            const words = text.split(' ');
+            let currentWordIndex = 0;
+            let currentText = '';
+
+            const typingInterval = setInterval(() => {
+                if (currentWordIndex < words.length) {
+                    currentText += (currentWordIndex > 0 ? ' ' : '') + words[currentWordIndex];
+                    messageDiv.textContent = currentText;
+                    currentWordIndex++;
+
+                    // Auto-scroll as text appears
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                } else {
+                    clearInterval(typingInterval);
+
+                    // Add RAG badge after typing completes
+                    if (hasRag) {
+                        const badge = document.createElement('span');
+                        badge.className = 'message-rag-badge';
+                        badge.textContent = '📄 RAG';
+                        badge.style.opacity = '0';
+                        messageDiv.appendChild(badge);
+
+                        // Fade in the badge
+                        setTimeout(() => {
+                            badge.style.transition = 'opacity 0.3s';
+                            badge.style.opacity = '1';
+                        }, 100);
+                    }
+                }
+            }, 50); // Speed: 50ms per word (adjust for faster/slower)
         }
 
         function showLoading() {

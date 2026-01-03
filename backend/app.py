@@ -436,7 +436,8 @@ def upload_document():
         
         # Save file
         filename = secure_filename(file.filename)
-        timestamp = str(int(os.path.getmtime if hasattr(os.path, 'getmtime') else lambda x: 0))
+        import time
+        timestamp = str(int(time.time()))
         safe_filename = f"{timestamp}_{filename}"
         file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
         

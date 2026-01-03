@@ -56,15 +56,21 @@ class RAGEngine:
             for chunk in context_chunks
         ])  
         
-        # Build full prompt
-        prompt = f"""You are a helpful AI assistant. Use the following context from uploaded documents to answer the question. If the answer cannot be found in the context, say so and provide a general answer.
+        # Improved prompt that handles both casual chat and questions
+        prompt = f"""You are a helpful AI assistant. You have access to some document content below.
 
-Context from documents:
+IMPORTANT INSTRUCTIONS:
+1. If the user's message is a casual response (like "cool", "okay", "thanks", "hi", etc.), just respond naturally and conversationally. DON'T mention the documents.
+2. If the user asks a real question about the documents, use the context below to answer accurately.
+3. If the question is NOT related to the documents, just answer normally based on your general knowledge.
+4. Be friendly and natural in your responses.
+
+Document Context (use ONLY if the question relates to this):
 {context_text}
 
-Question: {query}
+User's message: {query}
 
-Answer:"""
+Your response:"""
         
         return prompt
     

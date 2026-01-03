@@ -1,38 +1,80 @@
 """
-Vector Store for RAG System
-============================
-Manages document embeddings and similarity search using ChromaDB
+Simple Vector Store (No ChromaDB needed)
+=========================================
+Lightweight in-memory vector store using cosine similarity
 """
 
-import chromadb
-from chromadb.config import Settings
+import json
+import numpy as np
 from typing import List, Dict, Optional
 from pathlib import Path
+import pickle
 
 
-class VectorStore:
-    """Manages vector embeddings and similarity search"""
+class SimpleVectorStore:
+    """Simple in-memory vector store with cosine similarity search"""
     
-    def __init__(self, persist_directory: str = "data/chroma_db"):
+    def __init__(self, persist_directory: str = "data/vector_db"):
         """
-        Initialize ChromaDB vector store
+        Initialize simple vector store
         
         Args:
-            persist_directory: Directory to store embeddings
+            persist_directory: Directory to store vectors
         """
-        # Create persist directory
         Path(persist_directory).mkdir(parents=True, exist_ok=True)
+        self.persist_path = Path(persist_directory) / "vectors.pkl"
         
-        # Initialize ChromaDB client
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.documents = []  # List of document chunks
+        self.vectors = []    # List of vectors (simple TF-IDF)
+        self.metadata = []   # List of metadata dicts
         
-        # Get or create collection for documents
-        self.collection = self.client.get_or_create_collection(
-            name="documents",
-            metadata={"description": "PDF document chunks for RAG"}
-        )
+        # Load existing data if available
+        if self.persist_path.exists():
+            self._load()
         
-        print(f"✅ Vector store initialized at {persist_directory}")
+        print(f"✅ Simple vector store initialized at {persist_directory}")
+    
+    def _simple_vectorize(self, text: str) -> List[float]:
+        """
+        Create simple vector from text using word frequency
+        This is a basic TF approach (better than nothing!)
+        """
+        # Simple word tokenization and frequency count
+        words = text.lower().split()
+        word_freq = {}
+        for word in words:
+            word_freq[word] = word_freq.get(word, 0) + 1
+        
+        # Create a consistent vocabulary from all seen words
+        # For simplicity, we'll use top 1000 most common words
+        vocab = sorted(set(words))[:1000]
+        
+        # Create vector
+        vector = [word_freq.get(word, 0) for word in vocab]
+        
+        # Normalize
+        norm = sum(v * v for v in vector) ** 0.5
+        if norm > 0:
+            vector = [v / norm for v in vector]
+        
+        return vector
+    
+    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """Calculate cosine similarity between two vectors"""
+        # Pad vectors to same length
+        max_len = max(len(vec1), len(vec2))
+        vec1 = vec1 + [0] * (max_len - len(vec1))
+        vec2 = vec2 + [0] * (max_len - len(vec2))
+        
+        # Calculate cosine similarity
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        norm1 = sum(a * a for a in vec1) ** 0.5
+        norm2 = sum(b * b for b in vec2) ** 0.5
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        
+        return dot_product / (norm1 * norm2)
     
     def add_document(self, doc_id: int, chunks: List[Dict], metadata: Dict):
         """
@@ -41,32 +83,26 @@ class VectorStore:
         Args:
             doc_id: Document ID from database
             chunks: List of text chunks
-            metadata: Document metadata (filename, etc.)
+            metadata: Document metadata
         """
         try:
-            # Prepare data for ChromaDB
-            documents = []
-            metadatas = []
-            ids = []
-            
             for chunk in chunks:
-                documents.append(chunk['text'])
-                metadatas.append({
+                # Create vector
+                vector = self._simple_vectorize(chunk['text'])
+                
+                # Store
+                self.documents.append(chunk['text'])
+                self.vectors.append(vector)
+                self.metadata.append({
                     'doc_id': doc_id,
                     'chunk_id': chunk['id'],
                     'filename': metadata.get('filename', 'unknown'),
                     'start_char': chunk['start_char'],
                     'end_char': chunk['end_char']
                 })
-                ids.append(f"doc_{doc_id}_chunk_{chunk['id']}")
             
-            # Add to collection
-            # ChromaDB will automatically generate embeddings
-            self.collection.add(
-                documents=documents,
-                metadatas=metadatas,
-                ids=ids
-            )
+            # Save to disk
+            self._save()
             
             print(f"✅ Added {len(chunks)} chunks from document {doc_id}")
             
@@ -87,78 +123,108 @@ class VectorStore:
             List of relevant chunks with scores
         """
         try:
-            # Build where filter if doc_id specified
-            where_filter = None
-            if doc_id is not None:
-                where_filter = {"doc_id": doc_id}
+            if not self.documents:
+                return []
             
-            # Perform similarity search
-            results = self.collection.query(
-                query_texts=[query],
-                n_results=top_k,
-                where=where_filter
-            )
+            # Vectorize query
+            query_vector = self._simple_vectorize(query)
             
-            # Format results
-            chunks = []
-            if results['documents'] and results['documents'][0]:
-                for i in range(len(results['documents'][0])):
-                    chunks.append({
-                        'text': results['documents'][0][i],
-                        'metadata': results['metadatas'][0][i],
-                        'distance': results['distances'][0][i] if 'distances' in results else None
-                    })
+            # Calculate similarities
+            similarities = []
+            for i, (doc_vector, meta) in enumerate(zip(self.vectors, self.metadata)):
+                # Filter by doc_id if specified
+                if doc_id is not None and meta['doc_id'] != doc_id:
+                    continue
+                
+                similarity = self._cosine_similarity(query_vector, doc_vector)
+                similarities.append((i, similarity))
             
-            print(f"✅ Found {len(chunks)} relevant chunks")
-            return chunks
+            # Sort by similarity (highest first)
+            similarities.sort(key=lambda x: x[1], reverse=True)
+            
+            # Get top k results
+            results = []
+            for i, score in similarities[:top_k]:
+                results.append({
+                    'text': self.documents[i],
+                    'metadata': self.metadata[i],
+                    'distance': 1.0 - score  # Convert similarity to distance
+                })
+            
+            print(f"✅ Found {len(results)} relevant chunks")
+            return results
             
         except Exception as e:
             print(f"❌ Error searching vector store: {str(e)}")
             return []
     
     def delete_document(self, doc_id: int):
-        """
-        Delete all chunks from a document
-        
-        Args:
-            doc_id: Document ID to delete
-        """
+        """Delete all chunks from a document"""
         try:
-            # Get all IDs for this document
-            results = self.collection.get(
-                where={"doc_id": doc_id}
-            )
+            # Find indices to delete
+            indices_to_delete = [i for i, meta in enumerate(self.metadata) if meta['doc_id'] == doc_id]
             
-            if results and results['ids']:
-                self.collection.delete(ids=results['ids'])
-                print(f"✅ Deleted document {doc_id} from vector store")
-            else:
-                print(f"⚠️ No chunks found for document {doc_id}")
-                
+            # Delete in reverse order to maintain indices
+            for i in sorted(indices_to_delete, reverse=True):
+                del self.documents[i]
+                del self.vectors[i]
+                del self.metadata[i]
+            
+            # Save
+            self._save()
+            
+            print(f"✅ Deleted document {doc_id} from vector store")
+            
         except Exception as e:
             print(f"❌ Error deleting document: {str(e)}")
             raise
     
     def count_documents(self) -> int:
         """Get total number of chunks in the store"""
-        try:
-            return self.collection.count()
-        except:
-            return 0
+        return len(self.documents)
     
     def get_stats(self) -> Dict:
         """Get vector store statistics"""
         return {
-            'total_chunks': self.count_documents(),
-            'collection_name': self.collection.name
+            'total_chunks': len(self.documents),
+            'collection_name': 'simple_vectors'
         }
-
-
-# Test the vector store if run directly
-if __name__ == "__main__":
-    print("Testing Vector Store...")
     
-    store = VectorStore("data/test_chroma_db")
+    def _save(self):
+        """Save vectors to disk"""
+        try:
+            data = {
+                'documents': self.documents,
+                'vectors': self.vectors,
+                'metadata': self.metadata
+            }
+            with open(self.persist_path, 'wb') as f:
+                pickle.dump(data, f)
+        except Exception as e:
+            print(f"⚠️ Could not save vectors: {e}")
+    
+    def _load(self):
+        """Load vectors from disk"""
+        try:
+            with open(self.persist_path, 'rb') as f:
+                data = pickle.load(f)
+            self.documents = data.get('documents', [])
+            self.vectors = data.get('vectors', [])
+            self.metadata = data.get('metadata', [])
+            print(f"✅ Loaded {len(self.documents)} vectors from disk")
+        except Exception as e:
+            print(f"⚠️ Could not load vectors: {e}")
+
+
+# Backward compatibility - use SimpleVectorStore instead of ChromaDB
+VectorStore = SimpleVectorStore
+
+
+# Test if run directly
+if __name__ == "__main__":
+    print("Testing Simple Vector Store...")
+    
+    store = SimpleVectorStore("data/test_vector_db")
     
     # Test adding documents
     test_chunks = [

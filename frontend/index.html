@@ -153,7 +153,8 @@
             padding: 20px 30px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         .chat-header h1 {
@@ -166,15 +167,47 @@
             opacity: 0.9;
         }
 
-        .model-dropdown {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 20px;
-            font-size: 13px;
-            cursor: pointer;
+        .model-selector {
             margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 16px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .model-selector-label {
+            font-size: 12px;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .model-dropdown {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #667eea;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .model-dropdown:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .model-dropdown option {
+            color: #2d3748;
+            padding: 8px;
         }
 
         .rag-toggle {
@@ -182,6 +215,23 @@
             align-items: center;
             gap: 8px;
             font-size: 13px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 14px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .rag-toggle:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .rag-toggle input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
         }
 
         .chat-messages {
@@ -377,12 +427,15 @@
                     <h1>Local AI Chatbot with RAG</h1>
                     <p id="modelName">Powered by Ollama - 100% Offline</p>
                 </div>
-                <select id="modelDropdown" class="model-dropdown">
-                    <option>Loading...</option>
-                </select>
+                <div class="model-selector">
+                    <span class="model-selector-label">🎯 Model:</span>
+                    <select id="modelDropdown" class="model-dropdown">
+                        <option>Loading...</option>
+                    </select>
+                </div>
                 <label class="rag-toggle">
                     <input type="checkbox" id="ragEnabled" checked onchange="toggleRAG()">
-                    <span>Use Documents</span>
+                    <span>📄 Use Documents</span>
                 </label>
             </div>
 

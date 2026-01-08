@@ -645,7 +645,7 @@
         <div class="sidebar" id="sidebar">
             <!-- Chat History Section -->
             <div class="sidebar-section">
-                <h3>💬 Chat History<span class="doc-count-badge" id="chatCountBadge">0</span></h3>
+                <h3>Chat History<span class="doc-count-badge" id="chatCountBadge">0</span></h3>
                 <button class="btn btn-primary" onclick="createNewConversation()">+ New Chat</button>
                 <div id="conversationList" style="margin-top: 16px;">
                     <div class="empty-state">No conversations yet</div>
@@ -654,7 +654,7 @@
 
             <!-- Documents Section -->
             <div class="sidebar-section">
-                <h3>📄 Documents<span class="doc-count-badge" id="docCountBadge">0</span></h3>
+                <h3>Documents<span class="doc-count-badge" id="docCountBadge">0</span></h3>
                 <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">+ Upload
                     PDF</button>
                 <input type="file" id="fileInput" accept=".pdf" onchange="uploadDocument(this.files[0])">
@@ -671,7 +671,8 @@
                     ☰
                 </button>
                 <div>
-                    <div class="chat-header-icon" style="font-size: 28px; display: inline;">🤖</div>
+                    <div class="chat-header-icon" style="font-size: 20px; display: inline; font-weight: bold;">AI
+                        Assistant</div>
                 </div>
                 <div>
                     <h1>Local AI Chatbot with RAG</h1>
@@ -685,14 +686,14 @@
                 </div>
                 <button class="upload-button" onclick="document.getElementById('fileInput').click()"
                     title="Upload PDF for RAG">
-                    📤 Upload PDF
+                    Upload PDF
                 </button>
                 <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" title="Toggle Dark Mode">
                     🌙
                 </button>
                 <label class="rag-toggle">
                     <input type="checkbox" id="ragEnabled" checked onchange="toggleRAG()">
-                    <span>📄 Use Documents</span>
+                    <span>Use Documents</span>
                 </label>
             </div>
 
@@ -700,7 +701,7 @@
                 <div style="text-align: center; padding: 40px; color: #64748b;">
                     <h2
                         style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                        👋 Welcome!</h2>
+                        Welcome!</h2>
                     <p>Upload PDFs and ask questions about them, or just chat normally.</p>
                 </div>
             </div>
@@ -708,7 +709,7 @@
             <div class="chat-input-container">
                 <input type="text" class="chat-input" id="userInput" placeholder="Type your message..."
                     onkeypress="if(event.key==='Enter') sendMessage()">
-                <button class="send-button" id="sendButton" onclick="sendMessage()">Send 🚀</button>
+                <button class="send-button" id="sendButton" onclick="sendMessage()">Send</button>
             </div>
         </div>
     </div>
@@ -810,7 +811,7 @@
                         clearMessages();
                         document.getElementById('chatMessages').innerHTML = `
                             <div style="text-align: center; padding: 40px; color: #64748b;">
-                                <h2 style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">👋 Welcome!</h2>
+                                <h2 style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Welcome!</h2>
                                 <p>Upload PDFs and ask questions about them, or just chat normally.</p>
                             </div>
                         `;
@@ -983,7 +984,7 @@
             if (hasRag && sender === 'bot') {
                 const badge = document.createElement('span');
                 badge.className = 'message-rag-badge';
-                badge.textContent = '📄 RAG';
+                badge.textContent = 'RAG';
                 messageDiv.appendChild(badge);
             }
 
@@ -1048,7 +1049,7 @@
                         if (hasRag) {
                             const badge = document.createElement('span');
                             badge.className = 'message-rag-badge';
-                            badge.textContent = '📄 RAG';
+                            badge.textContent = 'RAG';
                             badge.style.opacity = '0';
                             messageDiv.appendChild(badge);
 
@@ -1153,7 +1154,7 @@
             const isDark = body.classList.contains('dark-mode');
 
             // Update icon
-            themeToggle.textContent = isDark ? '☀️' : '🌙';
+            themeToggle.textContent = isDark ? '\u2600' : '\u263e';
 
             // Save preference
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -1177,7 +1178,7 @@
 
             if (theme === 'dark') {
                 document.body.classList.add('dark-mode');
-                if (themeToggle) themeToggle.textContent = '☀️';
+                if (themeToggle) themeToggle.textContent = '\u2600';
             }
         }
 

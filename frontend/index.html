@@ -139,11 +139,16 @@
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             width: 100%;
+            transition: all 0.3s ease;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
+            transform: translateY(-2px) scale(1.02);
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0) scale(0.98);
         }
 
         .conversation-item,
@@ -401,12 +406,26 @@
             transition: all 0.3s;
             color: white;
             font-weight: 600;
+            animation: pulse-subtle 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-subtle {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
         }
 
         .upload-button:hover {
             background: rgba(255, 255, 255, 0.35);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            animation: none;
         }
 
         .chat-messages {
@@ -427,14 +446,17 @@
             max-width: 75%;
             padding: 14px 18px;
             border-radius: 18px;
-            line-height: 1.5;
-            animation: fadeIn 0.4s ease;
+            margin-bottom: 12px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            animation: fadeInUp 0.4s ease-out;
         }
 
-        @keyframes fadeIn {
+        @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(10px);
+                transform: translateY(20px);
             }
 
             to {
@@ -604,11 +626,35 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .send-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .send-button:hover::before {
+            width: 300px;
+            height: 300px;
         }
 
         .send-button:hover {
-            transform: translateY(-2px);
+            transform: translateY(-2px) scale(1.05);
             box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .send-button:active {
+            transform: translateY(0) scale(0.95);
         }
 
         /* FILE UPLOAD */
@@ -670,10 +716,6 @@
                 <button class="hamburger-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
                     ☰
                 </button>
-                <div>
-                    <div class="chat-header-icon" style="font-size: 20px; display: inline; font-weight: bold;">AI
-                        Assistant</div>
-                </div>
                 <div>
                     <h1>Local AI Chatbot with RAG</h1>
                     <p id="modelName">Powered by Ollama - 100% Offline</p>

@@ -5,6 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Chatbot - Local RAG</title>
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Syntax Highlighting for Code Blocks -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -14,21 +20,21 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #d1fae5 0%, #10b981 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 0;
+            margin: 0;
         }
 
         .app-container {
             width: 100%;
-            max-width: 1400px;
-            height: 90vh;
+            height: 100vh;
             background: rgba(255, 255, 255, 0.98);
-            border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 0;
+            box-shadow: none;
             display: flex;
             overflow: hidden;
         }
@@ -38,7 +44,8 @@
             width: 300px;
             background: #f8f9fa;
             border-right: 1px solid #e2e8f0;
-            display: flex;
+            display: none;
+            /* Hidden to allow full-window chat */
             flex-direction: column;
             overflow-y: auto;
         }
@@ -67,14 +74,14 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             width: 100%;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
         }
 
         .conversation-item,
@@ -90,14 +97,14 @@
 
         .conversation-item:hover,
         .document-item:hover {
-            border-color: #667eea;
+            border-color: #10b981;
             transform: translateX(4px);
         }
 
         .conversation-item.active {
-            background: #667eea;
+            background: #10b981;
             color: white;
-            border-color: #667eea;
+            border-color: #10b981;
         }
 
         .conversation-title {
@@ -148,7 +155,7 @@
         }
 
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             padding: 20px 30px;
             display: flex;
@@ -171,38 +178,42 @@
             margin-left: auto;
             display: flex;
             align-items: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.15);
-            padding: 8px 16px;
-            border-radius: 12px;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 16px;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .model-selector-label {
-            font-size: 12px;
-            opacity: 0.9;
-            font-weight: 500;
+            font-size: 14px;
+            opacity: 1;
+            font-weight: 600;
+            letter-spacing: 0.3px;
         }
 
         .model-dropdown {
-            padding: 6px 12px;
+            padding: 8px 16px;
             background: rgba(255, 255, 255, 0.95);
-            color: #667eea;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
+            color: #059669;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             outline: none;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            min-width: 150px;
         }
 
         .model-dropdown:hover {
             background: white;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.2);
+            border-color: rgba(255, 255, 255, 0.8);
         }
 
         .model-dropdown option {
@@ -232,6 +243,28 @@
             width: 16px;
             height: 16px;
             cursor: pointer;
+        }
+
+        .upload-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.25);
+            padding: 10px 18px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+            font-weight: 600;
+        }
+
+        .upload-button:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .chat-messages {
@@ -266,7 +299,7 @@
 
         .user-message {
             align-self: flex-end;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             border-bottom-right-radius: 4px;
         }
@@ -277,6 +310,38 @@
             color: #2d3748;
             border: 1px solid #e2e8f0;
             border-bottom-left-radius: 4px;
+        }
+
+        /* Code Block Styling */
+        .bot-message pre {
+            background: #282c34;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .bot-message code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .bot-message p code {
+            background: #f1f5f9;
+            color: #e53e3e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .bot-message p {
+            margin: 8px 0;
+        }
+
+        .bot-message ul,
+        .bot-message ol {
+            margin: 8px 0;
+            padding-left: 24px;
         }
 
         .message-rag-badge {
@@ -305,7 +370,7 @@
         .loading-dots span {
             width: 8px;
             height: 8px;
-            background: #667eea;
+            background: #10b981;
             border-radius: 50%;
             animation: loading 1.4s infinite ease-in-out both;
         }
@@ -351,12 +416,13 @@
         }
 
         .chat-input:focus {
-            border-color: #667eea;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
         }
 
         .send-button {
             padding: 14px 28px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             border: none;
             border-radius: 25px;
@@ -368,7 +434,7 @@
 
         .send-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
         }
 
         /* FILE UPLOAD */
@@ -433,6 +499,10 @@
                         <option>Loading...</option>
                     </select>
                 </div>
+                <button class="upload-button" onclick="document.getElementById('fileInput').click()"
+                    title="Upload PDF for RAG">
+                    📤 Upload PDF
+                </button>
                 <label class="rag-toggle">
                     <input type="checkbox" id="ragEnabled" checked onchange="toggleRAG()">
                     <span>📄 Use Documents</span>
@@ -442,7 +512,7 @@
             <div class="chat-messages" id="chatMessages">
                 <div style="text-align: center; padding: 40px; color: #64748b;">
                     <h2
-                        style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                         👋 Welcome!</h2>
                     <p>Upload PDFs and ask questions about them, or just chat normally.</p>
                 </div>
@@ -548,7 +618,7 @@
                         clearMessages();
                         document.getElementById('chatMessages').innerHTML = `
                             <div style="text-align: center; padding: 40px; color: #64748b;">
-                                <h2 style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">👋 Welcome!</h2>
+                                <h2 style="font-size: 28px; margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">👋 Welcome!</h2>
                                 <p>Upload PDFs and ask questions about them, or just chat normally.</p>
                             </div>
                         `;
@@ -687,7 +757,17 @@
 
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
-            messageDiv.textContent = text;
+
+            // Use markdown parser for bot messages, plain text for user
+            if (sender === 'bot') {
+                messageDiv.innerHTML = marked.parse(text);
+                // Apply syntax highlighting to code blocks
+                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            } else {
+                messageDiv.textContent = text;
+            }
 
             if (hasRag && sender === 'bot') {
                 const badge = document.createElement('span');
@@ -719,38 +799,73 @@
                 messageDiv.style.opacity = '1';
             }, 10);
 
-            // Typing animation - word by word
-            const words = text.split(' ');
-            let currentWordIndex = 0;
-            let currentText = '';
+            // For bot messages, parse markdown first then animate
+            if (sender === 'bot') {
+                // Parse the full markdown
+                const parsedHTML = marked.parse(text);
 
-            const typingInterval = setInterval(() => {
-                if (currentWordIndex < words.length) {
-                    currentText += (currentWordIndex > 0 ? ' ' : '') + words[currentWordIndex];
-                    messageDiv.textContent = currentText;
-                    currentWordIndex++;
+                // Create a temporary div to extract plain text for typing
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = parsedHTML;
+                const plainText = tempDiv.textContent;
 
-                    // Auto-scroll as text appears
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                } else {
-                    clearInterval(typingInterval);
+                // Typing animation - word by word
+                const words = plainText.split(' ');
+                let currentWordIndex = 0;
+                let currentText = '';
 
-                    // Add RAG badge after typing completes
-                    if (hasRag) {
-                        const badge = document.createElement('span');
-                        badge.className = 'message-rag-badge';
-                        badge.textContent = '📄 RAG';
-                        badge.style.opacity = '0';
-                        messageDiv.appendChild(badge);
+                const typingInterval = setInterval(() => {
+                    if (currentWordIndex < words.length) {
+                        currentText += (currentWordIndex > 0 ? ' ' : '') + words[currentWordIndex];
+                        messageDiv.textContent = currentText;
+                        currentWordIndex++;
 
-                        // Fade in the badge
-                        setTimeout(() => {
-                            badge.style.transition = 'opacity 0.3s';
-                            badge.style.opacity = '1';
-                        }, 100);
+                        // Auto-scroll as text appears
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    } else {
+                        clearInterval(typingInterval);
+
+                        // Replace with formatted HTML after typing completes
+                        messageDiv.innerHTML = parsedHTML;
+
+                        // Apply syntax highlighting
+                        messageDiv.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+
+                        // Add RAG badge after typing completes
+                        if (hasRag) {
+                            const badge = document.createElement('span');
+                            badge.className = 'message-rag-badge';
+                            badge.textContent = '📄 RAG';
+                            badge.style.opacity = '0';
+                            messageDiv.appendChild(badge);
+
+                            // Fade in the badge
+                            setTimeout(() => {
+                                badge.style.transition = 'opacity 0.3s';
+                                badge.style.opacity = '1';
+                            }, 100);
+                        }
                     }
-                }
-            }, 50); // Speed: 50ms per word (adjust for faster/slower)
+                }, 50); // Speed: 50ms per word (adjust for faster/slower)
+            } else {
+                // For user messages, keep existing plain text animation
+                const words = text.split(' ');
+                let currentWordIndex = 0;
+                let currentText = '';
+
+                const typingInterval = setInterval(() => {
+                    if (currentWordIndex < words.length) {
+                        currentText += (currentWordIndex > 0 ? ' ' : '') + words[currentWordIndex];
+                        messageDiv.textContent = currentText;
+                        currentWordIndex++;
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    } else {
+                        clearInterval(typingInterval);
+                    }
+                }, 50);
+            }
         }
 
         function showLoading() {

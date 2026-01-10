@@ -1,0 +1,27 @@
+LOCAL AI CHATBOT WITH RAG (RETRIEVAL AUGMENTED GENERATION):
+AN OFFLINE SMART CHAT SYSTEM
+
+Team Members: [Name 1], [Name 2], [Name 3]
+Institution: [Your University]
+Department: [Your Department]
+Academic Year: 2024-2025
+
+_______________________________________________________________________________
+
+ABSTRACT
+
+Online AI chatbots have problems with privacy and need constant internet. This project creates a chatbot that works completely offline on your computer while keeping your data safe.
+
+The main problem with regular AI is that it only knows old information from its training. Our solution lets users upload PDF files, and the chatbot reads and understands them to answer questions. This means the AI can learn new information and give accurate answers about topics it was never trained on.
+
+How it works: The system has two parts - a backend (Flask) that handles the AI work and a frontend (web interface) that users interact with. When you upload a PDF, it breaks the document into small pieces, converts them into numbers the computer can understand, and stores them in a database (ChromaDB). When you ask a question, it finds the most relevant pieces from your documents and uses them to create a smart answer. Chat history is saved in SQLite.
+
+Main features: (1) reads and understands your documents, (2) easy-to-use interface for uploading files, (3) works without internet, and (4) can handle multiple documents at once.
+
+Speed: The chatbot responds in 2-10 seconds depending on your computer. It can process long PDF files and remember previous conversations.
+
+This project shows that AI chatbots can work offline, which is useful for schools, hospitals, legal work, and anywhere data privacy matters. Future improvements include faster processing and support for images.
+
+KEYWORDS: AI Chatbot, Document Understanding, Offline AI, Question Answering
+
+TECHNOLOGIES: Python, Flask, JavaScript, ChromaDB, Ollama, SQLite

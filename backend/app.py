@@ -109,6 +109,11 @@ def chat():
         # Save user message
         db.save_message(conversation_id, 'user', user_message, has_rag=False)
         
+        # Get conversation history for context (last 10 messages)
+        conversation_history = db.get_conversation_messages(conversation_id)
+        # Only get the last 10 messages to avoid token limits
+        recent_history = conversation_history[-11:-1] if len(conversation_history) > 10 else conversation_history[:-1]
+        
         # USE RAG ENGINE IF AVAILABLE
         if RAG_AVAILABLE and use_rag:
             print("🔍 Using RAG engine...")
@@ -116,17 +121,39 @@ def chat():
                 query=user_message,
                 model=DEFAULT_MODEL,
                 use_rag=use_rag,
-                top_k=3
+                top_k=3,
+                conversation_history=recent_history
             )
             ai_response = rag_result['response']
             has_context = rag_result['has_rag_context']
             sources = rag_result.get('sources', [])
         else:
-            # Standard chat without RAG
+            # Standard chat without RAG - build conversation context
             print("💬 Standard chat (RAG not available)...")
+            
+            # Build conversation history context
+            history_text = ""
+            if recent_history:
+                history_text = "\n\nPrevious conversation:\n"
+                for msg in recent_history:
+                    role = "User" if msg['role'] == 'user' else "Assistant"
+                    history_text += f"{role}: {msg['content']}\n"
+            
+            # Add system identity with conversation history
+            system_prompt = f"""You are a helpful AI assistant. Your name is "Local AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system.
+
+IDENTITY GUIDELINES:
+- Only mention your name or introduce yourself when specifically asked about your identity, name, or who you are
+- For all other questions, just answer naturally without mentioning your name
+- You run completely offline using Ollama for privacy and security
+{history_text}
+User's current message: {user_message}
+
+Your response:"""
+            
             payload = {
                 "model": DEFAULT_MODEL,
-                "prompt": user_message,
+                "prompt": system_prompt,
                 "stream": False
             }
             response = requests.post(OLLAMA_API_URL, json=payload, timeout=120)

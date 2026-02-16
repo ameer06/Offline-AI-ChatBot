@@ -1,6 +1,6 @@
 # Abstract
 
-## Local AI Chatbot with Retrieval Augmented Generation: An Offline Approach to Context-Aware Conversational AI
+## Offline AI Chatbot with RAG: An Offline Approach to Context-Aware Conversational AI
 
 **Author**: [Your Name]  
 **Institution**: [Your University Name]  
@@ -11,7 +11,7 @@
 
 ### Abstract
 
-The proliferation of cloud-based conversational AI systems has raised concerns regarding data privacy, internet dependency, and accessibility in resource-constrained environments. This project presents a fully offline Local AI Chatbot system that leverages Retrieval Augmented Generation (RAG) to provide context-aware responses while maintaining complete data sovereignty. The system architecture combines a locally-hosted large language model (LLM) through Ollama with a vector database implementation using ChromaDB for semantic document retrieval.
+The proliferation of cloud-based conversational AI systems has raised concerns regarding data privacy, internet dependency, and accessibility in resource-constrained environments. This project presents a fully offline Offline AI Chatbot system that leverages Retrieval Augmented Generation (RAG) to provide context-aware responses while maintaining complete data sovereignty. The system architecture combines a locally-hosted large language model (LLM) through Ollama with a vector database implementation using ChromaDB for semantic document retrieval.
 
 The proposed solution addresses the fundamental limitation of traditional LLMs—their static knowledge base—by implementing a dynamic RAG pipeline that retrieves relevant information from user-uploaded PDF documents. When a query is received, the system performs semantic search across vectorized document chunks and augments the LLM prompt with contextually relevant information, enabling the model to generate accurate responses based on current or domain-specific knowledge not present in its training data.
 

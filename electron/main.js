@@ -124,7 +124,7 @@ function createTray() {
     ]);
 
     // tray.setContextMenu(contextMenu);
-    // tray.setToolTip('Local AI Chatbot');
+    // tray.setToolTip('Offline AI Chatbot with RAG');
 }
 
 /**

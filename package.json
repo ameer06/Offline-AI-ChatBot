@@ -27,7 +27,7 @@
     },
     "build": {
         "appId": "com.localai.chatbot",
-        "productName": "Local AI Chatbot",
+        "productName": "Offline AI Chatbot with RAG",
         "directories": {
             "output": "dist"
         },

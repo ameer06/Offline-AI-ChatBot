@@ -2,7 +2,7 @@
 
 ## Project Title
 
-**Local AI Chatbot Using Open-Source Language Models**
+**Offline AI Chatbot with RAG Using Open-Source Language Models**
 
 ---
 
@@ -43,7 +43,7 @@ If you prefer a different focus, here are alternatives:
 2. **"Offline AI Assistant: A Privacy-First Approach to Conversational AI"**
    - Emphasizes privacy angle
 
-3. **"Development of Local AI Chatbot with Ollama and Flask"**
+3. **"Development of Offline AI Chatbot with RAG with Ollama and Flask"**
    - More technical and detailed
 
 4. **"Decentralized AI Chatbot: Eliminating Cloud Dependency"**

@@ -36,6 +36,35 @@ class RAGEngine:
         """
         return self.vector_store.search(query, top_k=top_k)
     
+    def retrieve_context_from_docs(self, query: str, doc_ids: list, top_k: int = 3) -> List[Dict]:
+        """
+        Retrieve relevant context from specific documents only
+        
+        Args:
+            query: User's question
+            doc_ids: List of document IDs to search
+            top_k: Number of relevant chunks to retrieve per document
+            
+        Returns:
+            List of relevant text chunks from selected documents
+        """
+        print(f"🔍 retrieve_context_from_docs called with doc_ids: {doc_ids}")
+        all_results = []
+        
+        # Search each selected document
+        for doc_id in doc_ids:
+            print(f"   Searching vector store for doc_id: {doc_id}")
+            results = self.vector_store.search(query, top_k=top_k, doc_id=doc_id)
+            print(f"   Found {len(results)} chunks for doc_id {doc_id}")
+            if results:
+                print(f"   Metadata of first result: {results[0].get('metadata')}")
+            all_results.extend(results)
+        
+        # Sort all results by similarity and return top_k overall
+        all_results.sort(key=lambda x: x.get('distance', 1.0))
+        print(f"✅ Total {len(all_results)} chunks collected, returning top {top_k}")
+        return all_results[:top_k]
+    
     def build_prompt_with_context(self, query: str, context_chunks: List[Dict], conversation_history: list = None) -> str:
         """
         Build a prompt that includes retrieved context and conversation history
@@ -69,7 +98,7 @@ class RAGEngine:
                 history_text += f"{role}: {msg['content']}\n"
         
         # Improved prompt that handles both casual chat and questions
-        prompt = f"""You are a helpful AI assistant. Your name is "Local AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system with document understanding capabilities.
+        prompt = f"""You are a helpful AI assistant. Your name is "Offline AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system with document understanding capabilities.
 
 IDENTITY GUIDELINES:
 - Only mention your name or introduce yourself when specifically asked about your identity, name, or who you are
@@ -110,7 +139,7 @@ Your response:"""
                 role = "User" if msg['role'] == 'user' else "Assistant"
                 history_text += f"{role}: {msg['content']}\n"
         
-        prompt = f"""You are a helpful AI assistant. Your name is "Local AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system.
+        prompt = f"""You are a helpful AI assistant. Your name is "Offline AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system.
 
 IDENTITY GUIDELINES:
 - Only mention your name or introduce yourself when specifically asked about your identity, name, or who you are
@@ -156,7 +185,7 @@ Your response:"""
         except Exception as e:
             return f"Error generating response: {str(e)}"
     
-    def chat_with_rag(self, query: str, model: str = "llama3.2", use_rag: bool = True, top_k: int = 3, conversation_history: list = None) -> Dict:
+    def chat_with_rag(self, query: str, model: str = "llama3.2", use_rag: bool = True, top_k: int = 3, conversation_history: list = None, selected_doc_ids: list = None) -> Dict:
         """
         Complete RAG pipeline: retrieve context and generate response
         
@@ -166,18 +195,28 @@ Your response:"""
             use_rag: Whether to use RAG (retrieve context)
             top_k: Number of context chunks to retrieve
             conversation_history: List of previous messages for context
+            selected_doc_ids: List of document IDs to search (None = search all)
             
         Returns:
             Dictionary with response and metadata
         """
         if conversation_history is None:
             conversation_history = []
+        
+        if selected_doc_ids is None:
+            selected_doc_ids = []
             
         context_chunks = []
         
         # Retrieve context if RAG is enabled and documents exist
         if use_rag and self.vector_store.count_documents() > 0:
-            context_chunks = self.retrieve_context(query, top_k=top_k)
+            # If specific documents are selected, search only those
+            if selected_doc_ids:
+                print(f"🎯 Searching only selected documents: {selected_doc_ids}")
+                context_chunks = self.retrieve_context_from_docs(query, selected_doc_ids, top_k=top_k)
+            else:
+                print("📚 No documents selected, searching all documents")
+                context_chunks = self.retrieve_context(query, top_k=top_k)
         
         # Build prompt with or without context
         if context_chunks:

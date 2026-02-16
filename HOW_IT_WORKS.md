@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Local AI Chatbot with RAG** is a fully offline AI-powered chatbot that uses Retrieval Augmented Generation (RAG) to answer questions based on your uploaded PDF documents, while also functioning as a general-purpose chatbot.
+The **Offline AI Chatbot with RAG** is a fully offline AI-powered chatbot that uses Retrieval Augmented Generation (RAG) to answer questions based on your uploaded PDF documents, while also functioning as a general-purpose chatbot.
 
 ---
 

@@ -94,6 +94,7 @@ def chat():
         user_message = data.get('message', '')
         conversation_id = data.get('conversation_id', CURRENT_CONVERSATION_ID)
         use_rag = data.get('use_rag', RAG_ENABLED) and RAG_AVAILABLE
+        selected_documents = data.get('selected_documents', [])  # List of doc IDs to use
         
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
@@ -105,6 +106,8 @@ def chat():
             CURRENT_CONVERSATION_ID = conversation_id
         
         print(f"\n👤 User (Conv {conversation_id}): {user_message}")
+        if selected_documents:
+            print(f"📄 Using documents: {selected_documents}")
         
         # Save user message
         db.save_message(conversation_id, 'user', user_message, has_rag=False)
@@ -122,7 +125,8 @@ def chat():
                 model=DEFAULT_MODEL,
                 use_rag=use_rag,
                 top_k=3,
-                conversation_history=recent_history
+                conversation_history=recent_history,
+                selected_doc_ids=selected_documents  # Pass selected documents
             )
             ai_response = rag_result['response']
             has_context = rag_result['has_rag_context']
@@ -140,7 +144,7 @@ def chat():
                     history_text += f"{role}: {msg['content']}\n"
             
             # Add system identity with conversation history
-            system_prompt = f"""You are a helpful AI assistant. Your name is "Local AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system.
+            system_prompt = f"""You are a helpful AI assistant. Your name is "Offline AI Chatbot with RAG". You are an offline, privacy-focused conversational AI system.
 
 IDENTITY GUIDELINES:
 - Only mention your name or introduce yourself when specifically asked about your identity, name, or who you are

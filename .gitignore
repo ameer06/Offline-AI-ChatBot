@@ -1,6 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Zip files
 *.zip
-*.pptx
-*.pdf
-*.txt
-*.md
-!Local AI-Chatbot/

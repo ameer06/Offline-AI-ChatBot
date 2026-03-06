@@ -1,0 +1,6 @@
+*.zip
+*.pptx
+*.pdf
+*.txt
+*.md
+!Local AI-Chatbot/

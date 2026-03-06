@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Data Files (don't commit user data)
+backend/data/chatbot.db
+backend/data/test_chatbot.db
+backend/data/uploads/
+backend/data/chroma_db/
+backend/data/test_vector_db/
+*.db
+*.pkl
+
+# Node modules
+node_modules/
+package-lock.json
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Electron
+electron/dist/
+electron/build/

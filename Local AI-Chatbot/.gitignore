@@ -19,8 +19,21 @@ backend/data/test_chatbot.db
 backend/data/uploads/
 backend/data/chroma_db/
 backend/data/test_vector_db/
+data/
 *.db
 *.pkl
+
+# Extra Documentation (keep locally, not in repo)
+ABSTRACT.md
+ABSTRACT_ONE_PAGE.txt
+CUSTOMIZATION.md
+HOW_IT_WORKS.md
+PROJECT_FAQ.md
+PROJECT_SUBMISSION.md
+QUICKSTART.md
+README_DESKTOP.md
+REVIEW_II_DOCUMENTATION.md
+SYSTEM_REQUIREMENTS.md
 
 # Node modules
 node_modules/

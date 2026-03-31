@@ -12,7 +12,7 @@ How it works:
 No complicated stuff - just a simple messenger between your browser and the AI!
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
 import requests
 import json
@@ -197,35 +197,131 @@ Your response:"""
                 pass
         return jsonify({'error': str(e), 'response': error_msg, 'conversation_id': conversation_id}), 500
 
+@app.route('/chat/stream', methods=['POST'])
+def chat_stream():
+    """
+    Streaming chat endpoint - sends response tokens as Server-Sent Events
+    """
+    global CURRENT_CONVERSATION_ID, RAG_ENABLED
+    
+    data = request.get_json()
+    user_message = data.get('message', '')
+    conversation_id = data.get('conversation_id', CURRENT_CONVERSATION_ID)
+    use_rag = data.get('use_rag', RAG_ENABLED) and RAG_AVAILABLE
+    selected_documents = data.get('selected_documents', [])
+    
+    if not user_message:
+        return jsonify({'error': 'No message provided'}), 400
+    
+    # Create conversation if needed
+    if conversation_id is None:
+        title = user_message[:50] + "..." if len(user_message) > 50 else user_message
+        conversation_id = db.create_conversation(title, DEFAULT_MODEL)
+        CURRENT_CONVERSATION_ID = conversation_id
+    
+    # Save user message
+    db.save_message(conversation_id, 'user', user_message, has_rag=False)
+    
+    # Get conversation history
+    conversation_history = db.get_conversation_messages(conversation_id)
+    recent_history = conversation_history[-11:-1] if len(conversation_history) > 10 else conversation_history[:-1]
+    
+    # Build prompt
+    has_context = False
+    sources = []
+    
+    if RAG_AVAILABLE and use_rag:
+        if selected_documents:
+            context_chunks = rag_engine.retrieve_context_from_docs(user_message, selected_documents, top_k=3)
+        else:
+            context_chunks = rag_engine.retrieve_context(user_message, top_k=3)
+        
+        if context_chunks:
+            has_context = True
+            sources = list(set([c.get('source', '') for c in context_chunks if c.get('source')]))
+            prompt = rag_engine.build_prompt_with_context(user_message, context_chunks, recent_history)
+        else:
+            prompt = rag_engine.build_prompt_with_history(user_message, recent_history) if recent_history else user_message
+    else:
+        history_text = ""
+        if recent_history:
+            history_text = "\n\nPrevious conversation:\n"
+            for msg in recent_history:
+                role = "User" if msg['role'] == 'user' else "Assistant"
+                history_text += f"{role}: {msg['content']}\n"
+        
+        prompt = f"""You are a helpful AI assistant.{history_text}\nUser's current message: {user_message}\n\nYour response:"""
+    
+    def generate():
+        full_response = ""
+        yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id, 'has_rag_context': has_context, 'sources': sources})}\n\n"
+        
+        try:
+            payload = {
+                "model": DEFAULT_MODEL,
+                "prompt": prompt,
+                "stream": True
+            }
+            response = requests.post(OLLAMA_API_URL, json=payload, timeout=120, stream=True)
+            
+            for line in response.iter_lines():
+                if line:
+                    chunk = json.loads(line)
+                    token = chunk.get('response', '')
+                    full_response += token
+                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+                    
+                    if chunk.get('done', False):
+                        break
+            
+            db.save_message(conversation_id, 'assistant', full_response, has_rag=has_context)
+            yield f"data: {json.dumps({'type': 'done', 'full_response': full_response})}\n\n"
+            
+        except Exception as e:
+            error_msg = f'Error: {str(e)}'
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*'
+    })
+
 
 @app.route('/health', methods=['GET'])
 def health():
     """
-    Health check endpoint - just to verify the server is running.
-    Visit http://localhost:5000/health in your browser to test it.
+    Health check endpoint - verifies the backend is alive and checks Ollama connectivity.
     """
+    ollama_status = "unknown"
+    model_names = []
+    message = ""
+    
     try:
         # Try to connect to Ollama
         response = requests.get("http://localhost:11434/api/tags", timeout=5)
         if response.status_code == 200:
+            ollama_status = "connected"
             models = response.json().get('models', [])
             model_names = [model['name'] for model in models]
-            return jsonify({
-                'status': 'healthy',
-                'ollama': 'connected',
-                'available_models': model_names
-            })
+            message = "Backend and Ollama are fully operational."
         else:
-            return jsonify({
-                'status': 'unhealthy',
-                'ollama': 'not responding'
-            }), 503
-    except:
-        return jsonify({
-            'status': 'unhealthy',
-            'ollama': 'not connected',
-            'message': 'Make sure Ollama is running!'
-        }), 503
+            ollama_status = "error"
+            message = f"Ollama returned status code {response.status_code}"
+    except Exception as e:
+        ollama_status = "disconnected"
+        message = f"Cannot reach Ollama: {str(e)}"
+
+    # Always return 200 if the backend itself is alive
+    return jsonify({
+        'status': 'healthy',
+        'backend': 'online',
+        'ollama': {
+            'status': ollama_status,
+            'available_models': model_names,
+            'message': message
+        }
+    }), 200
 
 
 @app.route('/api/models', methods=['GET'])
@@ -416,6 +512,50 @@ def delete_conversation_endpoint(conversation_id):
             'status': 'error',
             'message': str(e)
         }), 500
+
+
+@app.route('/api/conversations/<int:conversation_id>/generate-title', methods=['POST'])
+def generate_title(conversation_id):
+    """Auto-generate a chat title from the first user message using AI"""
+    try:
+        messages = db.get_conversation_messages(conversation_id)
+        first_user_msg = next((m['content'] for m in messages if m['role'] == 'user'), None)
+        
+        if not first_user_msg:
+            return jsonify({'status': 'error', 'message': 'No user message found'}), 400
+        
+        prompt = f"""Summarize the following user message into a very short chat title (maximum 5 words). Return ONLY the title, nothing else.
+
+User message: {first_user_msg}
+
+Title:"""
+        payload = {"model": DEFAULT_MODEL, "prompt": prompt, "stream": False}
+        response = requests.post(OLLAMA_API_URL, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            title = response.json().get('response', '').strip().strip('"').strip("'")[:60]
+            if title:
+                db.update_conversation_title(conversation_id, title)
+                return jsonify({'status': 'success', 'title': title})
+        
+        return jsonify({'status': 'error', 'message': 'Could not generate title'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/conversations/<int:conversation_id>/rename', methods=['POST'])
+def rename_conversation(conversation_id):
+    """Manually rename a conversation"""
+    try:
+        data = request.get_json()
+        new_title = data.get('title', '').strip()
+        if not new_title:
+            return jsonify({'status': 'error', 'message': 'Title cannot be empty'}), 400
+        
+        db.update_conversation_title(conversation_id, new_title[:60])
+        return jsonify({'status': 'success', 'title': new_title[:60]})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @app.route('/api/conversations/<int:conversation_id>/set-active', methods=['POST'])
@@ -784,17 +924,11 @@ Flashcards:"""
 @app.route('/', methods=['GET'])
 def home():
     """
-    Home page - just shows info about the API
+    Serve the frontend UI directly from Flask.
+    This enables features like Voice Input that require localhost.
     """
-    return """
-    <h1>🤖 AI Chatbot Backend</h1>
-    <p>The server is running!</p>
-    <ul>
-        <li><a href="/health">Health Check</a> - Check if everything is working</li>
-        <li>POST to /chat - Send messages to the AI</li>
-    </ul>
-    <p>Now open the <code>frontend/index.html</code> file in your browser to start chatting!</p>
-    """
+    frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
+    return send_from_directory(frontend_dir, 'index.html')
 
 
 # Start the server

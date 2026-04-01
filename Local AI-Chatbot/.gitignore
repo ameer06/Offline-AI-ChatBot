@@ -1,9 +1,10 @@
-# Python
+ # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+backend/test_*.py
 *.egg-info/
 dist/
 build/
@@ -18,6 +19,8 @@ backend/data/chatbot.db
 backend/data/test_chatbot.db
 backend/data/uploads/
 backend/data/chroma_db/
+backend/data/vosk-model/
+backend/data/vosk-model.zip
 backend/data/test_vector_db/
 data/
 *.db
@@ -33,6 +36,7 @@ PROJECT_SUBMISSION.md
 QUICKSTART.md
 README_DESKTOP.md
 REVIEW_II_DOCUMENTATION.md
+REVIEW_III_FINAL_DOCUMENTATION.md
 SYSTEM_REQUIREMENTS.md
 
 # Node modules

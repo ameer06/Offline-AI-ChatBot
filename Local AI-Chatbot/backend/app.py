@@ -17,9 +17,22 @@ from flask_cors import CORS
 import requests
 import json
 import os
+import wave
+import tempfile
+import subprocess
 from pathlib import Path
 from werkzeug.utils import secure_filename
 from database import Database
+
+# Try to import voice transcription components (optional)
+VOICE_AVAILABLE = False
+try:
+    from vosk import Model as VoskModel, KaldiRecognizer
+    VOICE_AVAILABLE = True
+    print("\u2705 Vosk speech recognition loaded")
+except ImportError:
+    print("\u26a0\ufe0f Vosk not available. Voice input disabled.")
+    print("   To enable: pip install vosk")
 
 # Try to import RAG components (optional)
 RAG_AVAILABLE = False
@@ -918,6 +931,201 @@ Flashcards:"""
         return jsonify({'status': 'success', 'document': doc['filename'], 'flashcards': flashcards})
     except Exception as e:
         print(f"❌ Flashcard error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ==========================================
+# VOICE TRANSCRIPTION ENDPOINT
+# ==========================================
+
+# Global Vosk model (loaded once)
+vosk_model = None
+
+def get_vosk_model():
+    """Load or download the Vosk English model."""
+    global vosk_model
+    if vosk_model is not None:
+        return vosk_model
+    
+    if not VOICE_AVAILABLE:
+        return None
+    
+    model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'vosk-model')
+    
+    if not os.path.exists(model_dir):
+        print("\U0001f4e5 Downloading Vosk English model (~40MB)... This only happens once.")
+        import urllib.request
+        import zipfile
+        
+        model_url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+        zip_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'vosk-model.zip')
+        
+        try:
+            urllib.request.urlretrieve(model_url, zip_path)
+            print("\U0001f4e6 Extracting model...")
+            
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
+            
+            # Rename extracted folder to 'vosk-model'
+            extracted_name = 'vosk-model-small-en-us-0.15'
+            extracted_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', extracted_name)
+            if os.path.exists(extracted_path):
+                os.rename(extracted_path, model_dir)
+            
+            # Clean up zip
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            
+            print("\u2705 Vosk model ready!")
+        except Exception as e:
+            print(f"\u274c Failed to download Vosk model: {e}")
+            return None
+    
+    try:
+        vosk_model = VoskModel(model_dir)
+        return vosk_model
+    except Exception as e:
+        print(f"\u274c Failed to load Vosk model: {e}")
+        return None
+
+
+def get_ffmpeg_path():
+    """Get ffmpeg path - try imageio-ffmpeg first, then system ffmpeg."""
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
+    
+    # Try system ffmpeg
+    import shutil
+    path = shutil.which('ffmpeg')
+    if path:
+        return path
+    
+    return None
+
+
+@app.route('/api/voice/transcribe', methods=['POST'])
+def transcribe_voice():
+    """Receive audio from the browser, convert to WAV, transcribe with Vosk offline."""
+    try:
+        if not VOICE_AVAILABLE:
+            return jsonify({'status': 'error', 'message': 'Voice transcription not available. Install vosk: pip install vosk'}), 503
+        
+        model = get_vosk_model()
+        if model is None:
+            return jsonify({'status': 'error', 'message': 'Could not load speech recognition model. Check internet for first-time download.'}), 503
+        
+        # Get the audio file from the request
+        if 'audio' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No audio file received'}), 400
+        
+        audio_file = request.files['audio']
+        
+        # Save the uploaded audio to a temp file
+        with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as tmp_webm:
+            audio_file.save(tmp_webm.name)
+            webm_path = tmp_webm.name
+        
+        wav_path = webm_path.replace('.webm', '.wav')
+        
+        # Also save debug copies
+        debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+        import shutil
+        debug_webm = os.path.join(debug_dir, 'debug_recording.webm')
+        shutil.copy2(webm_path, debug_webm)
+        print(f"[VOICE DEBUG] Saved debug WebM: {debug_webm} ({os.path.getsize(debug_webm)} bytes)", flush=True)
+        
+        try:
+            # Convert WebM to WAV using ffmpeg
+            ffmpeg_path = get_ffmpeg_path()
+            if ffmpeg_path is None:
+                return jsonify({'status': 'error', 'message': 'ffmpeg not found. Install: pip install imageio-ffmpeg'}), 503
+            
+            result = subprocess.run([
+                ffmpeg_path, '-i', webm_path,
+                '-acodec', 'pcm_s16le',  # Explicit PCM 16-bit
+                '-ar', '16000',    # 16kHz sample rate (Vosk requirement)
+                '-ac', '1',        # Mono
+                '-f', 'wav',
+                '-y',              # Overwrite
+                wav_path
+            ], capture_output=True, text=True, timeout=30)
+            
+            print(f"[VOICE DEBUG] FFmpeg exit code: {result.returncode}", flush=True)
+            if result.stderr:
+                print(f"[VOICE DEBUG] FFmpeg stderr: {result.stderr[:500]}", flush=True)
+            
+            if result.returncode != 0:
+                print(f"FFmpeg error: {result.stderr}", flush=True)
+                return jsonify({'status': 'error', 'message': 'Audio conversion failed'}), 500
+            
+            # Debug: check file sizes
+            webm_size = os.path.getsize(webm_path)
+            wav_size = os.path.getsize(wav_path)
+            print(f"[VOICE DEBUG] Audio: WebM={webm_size} bytes, WAV={wav_size} bytes", flush=True)
+            
+            # Save debug WAV copy
+            debug_wav = os.path.join(debug_dir, 'debug_recording.wav')
+            shutil.copy2(wav_path, debug_wav)
+            print(f"[VOICE DEBUG] Saved debug WAV: {debug_wav}", flush=True)
+            
+            if wav_size < 1000:
+                return jsonify({'status': 'error', 'message': 'Recording too short. Hold the button longer and speak clearly.'}), 200
+            
+            # Transcribe with Vosk
+            recognizer = KaldiRecognizer(model, 16000)
+            recognizer.SetWords(True)
+            
+            all_text = []
+            
+            with wave.open(wav_path, 'rb') as wf:
+                # Debug: log WAV properties
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                channels = wf.getnchannels()
+                sampwidth = wf.getsampwidth()
+                duration = frames / float(rate)
+                print(f"[VOICE DEBUG] WAV: {frames} frames, {rate}Hz, {channels}ch, {sampwidth}bytes/sample, {duration:.1f}s", flush=True)
+                
+                while True:
+                    data = wf.readframes(4000)
+                    if len(data) == 0:
+                        break
+                    if recognizer.AcceptWaveform(data):
+                        partial = json.loads(recognizer.Result())
+                        part_text = partial.get('text', '').strip()
+                        if part_text:
+                            all_text.append(part_text)
+            
+            final_result = json.loads(recognizer.FinalResult())
+            final_text = final_result.get('text', '').strip()
+            if final_text:
+                all_text.append(final_text)
+            
+            text = ' '.join(all_text).strip()
+            
+            print(f"[VOICE DEBUG] Vosk result: '{text}'", flush=True)
+            
+            if text:
+                print(f"[VOICE DEBUG] Transcribed: {text}", flush=True)
+                return jsonify({'status': 'success', 'text': text})
+            else:
+                return jsonify({'status': 'error', 'message': 'No speech detected. Speak louder or hold the mic button longer.'}), 200
+        
+        finally:
+            # Clean up temp files
+            for f in [webm_path, wav_path]:
+                try:
+                    if os.path.exists(f):
+                        os.remove(f)
+                except:
+                    pass
+    
+    except Exception as e:
+        print(f"\u274c Transcription error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 

@@ -2207,61 +2207,135 @@
 
         // ==================== VOICE INPUT ====================
 
-        let recognition = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
         let isRecording = false;
+        let voiceProcessing = false;
 
-        function toggleVoiceInput() {
+        async function toggleVoiceInput() {
             const btn = document.getElementById('voiceBtn');
 
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                showToast('⚠️ Voice input not supported in this browser');
+            // Don't allow clicks while transcribing
+            if (voiceProcessing) {
+                showToast('⏳ Still transcribing... please wait.');
                 return;
             }
 
+            // If already recording, stop
             if (isRecording) {
-                recognition.stop();
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                }
                 return;
             }
 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                isRecording = true;
-                btn.classList.add('recording');
-                btn.textContent = '⏹';
-                showToast('🎤 Listening...');
-            };
-
-            recognition.onresult = (event) => {
-                let transcript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    transcript += event.results[i][0].transcript;
+            // Check if on file:// protocol
+            if (window.location.protocol === 'file:') {
+                if (confirm('🎤 Voice input requires localhost.\n\nRedirect to http://localhost:5000 now?\n\n(Make sure the backend server is running)')) {
+                    window.location.href = 'http://localhost:5000';
                 }
-                document.getElementById('userInput').value = transcript;
-            };
+                return;
+            }
 
-            recognition.onend = () => {
-                isRecording = false;
-                btn.classList.remove('recording');
-                btn.textContent = '🎤';
-            };
+            // Request microphone access
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                audioChunks = [];
+                
+                // Determine best supported mimeType
+                const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+                const mimeType = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+                console.log('🎤 Using mimeType:', mimeType);
 
-            recognition.onerror = (event) => {
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstart = () => {
+                    isRecording = true;
+                    btn.classList.add('recording');
+                    btn.textContent = '⏹';
+                    showToast('🎤 Listening... Click again to stop.');
+                };
+
+                mediaRecorder.onstop = async () => {
+                    isRecording = false;
+                    const voiceBtn = document.getElementById('voiceBtn');
+                    voiceBtn.classList.remove('recording');
+                    voiceBtn.textContent = '🎤';
+
+                    // Stop all microphone tracks
+                    stream.getTracks().forEach(track => track.stop());
+
+                    if (audioChunks.length === 0) {
+                        console.warn('⚠️ No audio chunks captured');
+                        showToast('⚠️ No audio captured. Please try again.');
+                        return;
+                    }
+
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    console.log('🎤 Recorded blob size:', audioBlob.size, 'type:', audioBlob.type);
+                    
+                    if (audioBlob.size < 1000) {
+                        showToast('⚠️ Recording too short or no sound detected.');
+                        return;
+                    }
+                    
+                    // Show processing state
+                    voiceProcessing = true;
+                    showToast('⏳ Transcribing audio...');
+                    voiceBtn.style.opacity = '0.5';
+                    voiceBtn.style.pointerEvents = 'none';
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob, 'recording.webm');
+
+                        const response = await fetch(`${API_URL}/api/voice/transcribe`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await response.json();
+                        if (data.status === 'success' && data.text) {
+                            document.getElementById('userInput').value = data.text;
+                            showToast('✅ Voice transcribed!');
+                        } else {
+                            showToast('⚠️ ' + (data.message || 'Could not transcribe audio'));
+                        }
+                    } catch (err) {
+                        console.error('Transcription error:', err);
+                        showToast('⚠️ Transcription failed. Is the backend running?');
+                    } finally {
+                        voiceProcessing = false;
+                        const resetBtn = document.getElementById('voiceBtn');
+                        resetBtn.disabled = false;
+                        resetBtn.style.opacity = '1';
+                        resetBtn.style.pointerEvents = 'auto';
+                    }
+                };
+
+                // Start recording with 100ms timeslice for more frequent data capture
+                mediaRecorder.start(100);
+
+            } catch (err) {
+                console.error('Microphone error:', err);
                 isRecording = false;
-                btn.classList.remove('recording');
-                btn.textContent = '🎤';
-                if (event.error === 'network') {
-                    showToast('⚠️ Voice needs localhost! Open http://localhost:5000 instead of file://');
-                } else if (event.error !== 'aborted') {
-                    showToast('⚠️ Voice error: ' + event.error);
+                voiceProcessing = false;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+                if (err.name === 'NotAllowedError') {
+                    showToast('⚠️ Microphone access denied. Please allow microphone permission.');
+                } else {
+                    showToast('⚠️ Could not access microphone: ' + err.message);
                 }
-            };
-
-            recognition.start();
+            }
         }
 
         // ==================== AUTO-TITLE GENERATION ====================
